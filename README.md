@@ -1,103 +1,107 @@
-# 🎧 Audio Format Processor for Voice Cloning (Fish Speech Compatible)
+# Audio Processing Pipeline
 
-This project is a Python-based audio preprocessing utility designed to **analyze and convert audio files** into the standard format required by **voice cloning systems**—particularly compatible with **Fish Speech** requirements.
+A modular audio processing pipeline for voice-focused enhancement, noise reduction, normalization, and segmentation. Built using Python and `pydub`, with integration of neural noise suppression (DeepFilterNet).
 
-It ensures audio files meet strict criteria by:
-- Detecting current format
-- Converting to standard sample rate, bit depth, and channels
-- Handling corrupted or incompatible audio gracefully
+## 📁 Repository Structure
+
+```
+.
+├── modules/
+│   ├── clarity_enhancement.py         # Neural denoising, EQ, limiting
+│   ├── format_standardization.py      # Sample rate, bit depth, channel consistency
+│   ├── normalization.py               # dBFS loudness normalization
+│   ├── silence_detection.py           # Removes silence from speech
+│   └── segmentation.py                # Splits speech into chunks
+├── audio_processing.py                # Pipeline entry point (CLI)
+└── README.md                          # Documentation
+```
+
+## 🧠 Features
+- Format-independent input support (WAV, MP3, FLAC, etc.)
+- Noise reduction using DeepFilterNet
+- Equalization and peak limiting for speech clarity
+- Silence trimming
+- Loudness normalization
+- Optional segmentation into speech chunks
+- Configurable via command-line
+
+## ⚙️ Requirements
+
+- Python 3.8+
+- FFmpeg (required by `pydub`)
+
+### Install Python Dependencies
+```bash
+pip install -r requirements.txt
+```
+
+You may need to install `ffmpeg` via your system package manager:
+
+```bash
+# Ubuntu / Debian
+sudo apt install ffmpeg
+
+# macOS (Homebrew)
+brew install ffmpeg
+```
+
+## 🚀 Usage
+
+### Run the pipeline
+```bash
+python audio_processing.py <path-to-directory> [--save_steps] [--save_chunks]
+```
+
+### Example
+```bash
+python audio_processing.py ./samples --save_steps --save_chunks
+```
+
+This will:
+1. Find all audio files in `./samples`
+2. Standardize format, remove silence, normalize, and enhance clarity
+3. Save intermediate files if `--save_steps` is specified
+4. Segment the final output into chunks if `--save_chunks` is specified
+
+### Output Structure
+```
+samples/
+├── yourfile.wav
+├── format-standardized/
+├── silence-removed/
+├── normalized/
+├── clarity-enhanced/
+segmented/
+```
+
+## ✨ Modules Overview
+
+### `format_standardization.py`
+- Ensures consistent sample rate, bit depth, and channel format
+
+### `silence_detection.py`
+- Removes long silences to tighten speech pacing
+
+### `normalization.py`
+- Brings all audio to a consistent target dBFS
+
+### `clarity_enhancement.py`
+- Applies:
+  - High-pass filter
+  - DeepFilterNet neural noise reduction
+  - EQ boost for 2-5kHz (speech clarity)
+  - Peak limiting
+
+### `segmentation.py`
+- Splits the final audio into chunks at silence points (optional)
+
+## 🧪 Recommended Settings
+| Flag          | Purpose                          | Recommended |
+|---------------|-----------------------------------|-------------|
+| `--save_steps`| For debugging and inspection      | ✅           |
+| `--save_chunks`| For inference or batching speech | ✅           |
 
 ---
 
-## 🐟 Fish Speech Format Requirements
-
-Voice cloning systems like Fish Speech require audio in the following format:
-
-- **Sample Rate**: 44.1 kHz
-- **Bit Depth**: 16-bit (or 24-bit)
-- **Channels**: Stereo (2 channels)
-- **Format**: WAV
-
-This tool prepares any supported audio file (e.g., MP3, WAV) for use in these systems.
-
----
-
-## 🚀 Features
-
-- 🔍 Detects audio format using:
-  - **fleep** (byte-level analysis)
-  - **pydub.mediainfo**
-- 🛠 Converts:
-  - Sample Rate → 44.1 kHz
-  - Bit Depth → 16-bit or 24-bit
-  - Mono ↔ Stereo channels
-- 🔐 Validates audio integrity before processing
-- ⚠️ Error handling for:
-  - Corrupt files
-  - Unsupported formats
-- 📤 Exports output as high-quality `.wav`
-
----
-
-## 📁 Functions Overview
-
-### `detect_audio_format_fleep(file_path: str) -> Optional[str]`
-- **Description**: Uses the `fleep` library to detect the file format by analyzing its first 128 bytes.
-- **Input**: `file_path` – path to the audio file.
-- **Output**: Audio format extension (e.g., "mp3") or `None`.
-
----
-
-### `detect_audio_format_mediainfo(file_path: str) -> Optional[str]`
-- **Description**: Retrieves format details using `pydub.utils.mediainfo`.
-- **Input**: `file_path` – path to the audio file.
-- **Output**: Format name (e.g., "mp3", "wav") or `None`.
-
----
-
-### `check_audio_integrity(file_path: str) -> bool`
-- **Description**: Checks if the file is a valid, readable, and non-empty audio file.
-- **Input**: `file_path` – path to the audio file.
-- **Output**: `True` if the audio is valid, raises an error otherwise.
-
----
-
-### `convert_sample_rate(audio: AudioSegment, target_sample_rate: int) -> AudioSegment`
-- **Description**: Converts the sample rate of the audio.
-- **Input**: 
-  - `audio` – the audio segment.
-  - `target_sample_rate` – desired sample rate (e.g., 44100).
-- **Output**: Modified `AudioSegment` with the new sample rate.
-
----
-
-### `convert_bit_depth(audio: AudioSegment, target_bit_depth: int) -> AudioSegment`
-- **Description**: Converts the bit depth of the audio.
-- **Input**: 
-  - `audio` – the audio segment.
-  - `target_bit_depth` – must be 16 or 24.
-- **Output**: Modified `AudioSegment` with the new bit depth.
-
----
-
-### `convert_channels(audio: AudioSegment, target_channels: int) -> AudioSegment`
-- **Description**: Converts the number of channels (mono/stereo).
-- **Input**: 
-  - `audio` – the audio segment.
-  - `target_channels` – 1 (mono) or 2 (stereo).
-- **Output**: Modified `AudioSegment` with the new channel count.
-
----
-
-### `process_audio_file(file_path: str, target_sample_rate: int = 44100, target_bit_depth: int = 16, target_channels: int = 2) -> None`
-- **Description**: Orchestrates the full audio pipeline: detection, integrity check, conversion, and saving output.
-- **Input**:
-  - `file_path` – path to the original audio file.
-  - `target_sample_rate` – default is 44100 Hz.
-  - `target_bit_depth` – default is 16-bit.
-  - `target_channels` – default is 2 (stereo).
-- **Output**: None (writes converted file to disk).
-
----
-
+Built for scalable and modular audio preprocessing in voice-first AI systems.
 

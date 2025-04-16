@@ -24,48 +24,88 @@ def detect_silent_segments(audio_path, silence_thresh=-40, min_silence_len=1000)
     return silent_segments
 
 
-def save_audio_without_silence(audio_path, silent_segments):
+def process_audio(
+    file_path=None,
+    *,
+    audio=None,
+    silence_thresh: int = -40,
+    min_silence_len: int = 1000,
+    save: bool = False,
+):
     """
-    Saves the new audio without the silent segments in the specified output directory.
+    Entry‑point for the silence‑detection / removal stage.
 
-    :param audio_path: str, path to the original audio file.
-    :param silent_segments: list of non-silent audio segments.
-    :param output_name: str, the new file name (without extension).
+    Parameters
+    ----------
+    file_path : str | None
+        Path to an audio file on disk.  Required if `audio` is not given.
+        When `save=True`, the silence‑removed file is written next to
+        this path inside a "silence-removed/" sub‑folder.
+    audio : AudioSegment | None
+        In‑memory audio from a previous pipeline step.  Supply this
+        instead of `file_path` when chaining modules.
+    silence_thresh : int
+        Silence threshold in dBFS (default ‑40 dB).
+    min_silence_len : int
+        Minimum length of a silent region (ms) (default 1000 ms).
+    save : bool
+        If True **and** `file_path` is supplied, write the processed file
+        to disk as "<input_dir>/silence-removed/<name>_silence_removed.wav".
+
+    Returns
+    -------
+    AudioSegment
+        The audio with silent sections removed, suitable for the next
+        step in the pipeline.
     """
-    # Extract the directory of the input file
-    input_dir = os.path.dirname(audio_path)
+    # --------------------------------------------------------------- #
+    # 0. Validate inputs
+    # --------------------------------------------------------------- #
+    if audio is None and file_path is None:
+        raise ValueError("Provide either `file_path` or `audio`.")
 
-    # Define a subdirectory names "silence-removed"
-    output_dir = os.path.join(input_dir, "silence-removed")
+    # --------------------------------------------------------------- #
+    # 1. Load if necessary
+    # --------------------------------------------------------------- #
+    if audio is None:
+        audio = AudioSegment.from_file(file_path)
 
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)  # Create the directory if it doesn't exist
-
-    # Create the output file path
-    output_name = os.path.splitext(os.path.basename(audio_path))[0] + "_silence_removed"
-    output_path = os.path.join(output_dir, f"{output_name}.wav")
-
-    # Combine all the non-silent segments into one audio file
-    audio_without_silence = AudioSegment.empty()
-    for segment in silent_segments:
-        audio_without_silence += segment
-
-    # Export the new audio without silence
-    audio_without_silence.export(output_path, format="wav")
-    print(f"New audio file saved as: {output_path}")
-
-
-def process_audio(audio_path):
-    """
-    Process the audio file by detecting silent segments and saving the audio without the silent parts.
-
-    :param audio_path: str, path to the audio file.
-    """
-    # Detect silent segments
-    silent_segments = detect_silent_segments(audio_path)
-
-    # Save the new audio without the silent segments
-    save_audio_without_silence(
-        audio_path,
-        silent_segments,
+    # --------------------------------------------------------------- #
+    # 2. Detect non‑silent segments
+    # --------------------------------------------------------------- #
+    non_silent_segments = split_on_silence(
+        audio,
+        min_silence_len=min_silence_len,
+        silence_thresh=silence_thresh,
     )
+    print(f"Found {len(non_silent_segments)} non-silent segments.")
+
+    # --------------------------------------------------------------- #
+    # 3. Recombine into a single track
+    # --------------------------------------------------------------- #
+    processed_audio = AudioSegment.empty()
+    for segment in non_silent_segments:
+        processed_audio += segment
+
+    # --------------------------------------------------------------- #
+    # 4. Optionally save to disk
+    # --------------------------------------------------------------- #
+    if save:
+        if file_path is None:
+            raise ValueError(
+                "save=True was requested but no `file_path` supplied. "
+                "Either pass the original path or set save=False."
+            )
+        input_dir = os.path.dirname(file_path)
+        output_dir = os.path.join(input_dir, "silence-removed")
+        os.makedirs(output_dir, exist_ok=True)
+
+        base = os.path.splitext(os.path.basename(file_path))[0]
+        output_path = os.path.join(output_dir, f"{base}_silence_removed.wav")
+        processed_audio.export(output_path, format="wav")
+        print(f"New audio file saved as: {output_path}")
+
+    # --------------------------------------------------------------- #
+    # 5. Return result for further pipeline stages
+    # --------------------------------------------------------------- #
+    return processed_audio
