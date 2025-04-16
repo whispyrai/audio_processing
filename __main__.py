@@ -46,6 +46,13 @@ def process_all_audios(input_dir: str, save_steps: bool, save_chunks: bool):
             audio=audio, file_path=file_path, save=save_steps
         )
 
+        # Save the processed audio
+        output_dir = os.path.join(input_dir, "processed")
+        os.makedirs(output_dir, exist_ok=True)
+        output_file_path = os.path.join(output_dir, filename)
+        audio.export(output_file_path, format="wav")
+        print(f"Processed audio saved to: {output_file_path}")
+
         # Step 5: Optional Segmentation
         if save_chunks:
             segmentation.segment_audio(
