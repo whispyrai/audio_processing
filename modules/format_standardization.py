@@ -133,66 +133,107 @@ def convert_channels(audio, target_channels):
 
 
 def process_audio(
-    file_path, target_sample_rate=48000, target_bit_depth=24, target_channels=1
+    file_path=None,
+    *,
+    audio=None,
+    target_sample_rate: int = 48_000,
+    target_bit_depth: int = 24,
+    target_channels: int = 1,
+    save: bool = False,
 ):
     """
-    Processes the audio file: detects format, checks integrity, and performs conversions.
+    Entry‑point for the format‑standardization module.
+    It can now be used in two ways:
 
-    Args:
-        file_path (str): Path to the input audio file.
-        target_sample_rate (int, optional): Desired sample rate in Hz (default is 44100).
-        target_bit_depth (int, optional): Desired bit depth (16 or 24, default is 16).
-        target_channels (int, optional): Desired number of channels (default is 2).
+    1. Pipeline mode (in‑memory)  ➜  pass `audio` (AudioSegment)
+    2. Stand‑alone  / debug mode  ➜  pass `file_path` (str)
 
-    Returns:
-        None
+    Parameters
+    ----------
+    file_path : str | None
+        Path to the original audio file on disk.  Required if `audio` is
+        not provided.  When `save=True`, the processed file is written
+        next to this path inside a "format-standardized/" sub‑folder.
+    audio : AudioSegment | None
+        In‑memory audio from a previous pipeline stage.  Supply this
+        instead of `file_path` when chaining modules.
+    target_sample_rate : int
+        Desired sample‑rate in Hz (default 48 kHz).
+    target_bit_depth : int
+        Desired bit‑depth (16 or 24; default 24).
+    target_channels : int
+        Desired number of channels (1 = mono, 2 = stereo; default 1).
+    save : bool
+        If True **and** `file_path` is given, write the converted file
+        to "<input_dir>/format-standardized/<name>_format_standardized.wav".
+
+    Returns
+    -------
+    AudioSegment
+        The processed (format‑standardized) audio.
     """
-    print(f"Processing: {file_path}")
+    # ------------------------------------------------------------------ #
+    # 0. Basic validation
+    # ------------------------------------------------------------------ #
+    if audio is None and file_path is None:
+        raise ValueError("Provide either `file_path` or `audio`.")
 
-    try:
-        format_fleep = detect_audio_format_fleep(file_path)
-        print(f"Format detected by fleep: {format_fleep}")
-    except Exception as e:
-        print(e)
+    # ------------------------------------------------------------------ #
+    # 1. If we received only a file path, load & analyse it
+    # ------------------------------------------------------------------ #
+    if audio is None:
+        print(f"Processing: {file_path}")
 
-    try:
-        format_mediainfo = detect_audio_format_mediainfo(file_path)
-        print(f"Format detected by mediainfo: {format_mediainfo}")
-    except Exception as e:
-        print(e)
+        # --- format / integrity diagnostics (for debug clarity) -------- #
+        try:
+            fmt_fleep = detect_audio_format_fleep(file_path)
+            print(f"Format detected by fleep: {fmt_fleep}")
+        except Exception as e:
+            print(e)
 
-    try:
-        if check_audio_integrity(file_path):
-            print("Audio file is valid and not corrupted.")
-    except Exception as e:
-        print(e)
+        try:
+            fmt_media = detect_audio_format_mediainfo(file_path)
+            print(f"Format detected by mediainfo: {fmt_media}")
+        except Exception as e:
+            print(e)
 
-    try:
+        try:
+            if check_audio_integrity(file_path):
+                print("Audio file is valid and not corrupted.")
+        except Exception as e:
+            print(e)
+
+        # --- actually load the audio ---------------------------------- #
         audio = AudioSegment.from_file(file_path)
 
-        # Perform conversions
-        audio = convert_sample_rate(audio, target_sample_rate)
-        audio = convert_bit_depth(audio, target_bit_depth)
-        audio = convert_channels(audio, target_channels)
+    # ------------------------------------------------------------------ #
+    # 2. Convert sample‑rate, bit‑depth, channels
+    # ------------------------------------------------------------------ #
+    audio = convert_sample_rate(audio, target_sample_rate)
+    audio = convert_bit_depth(audio, target_bit_depth)
+    audio = convert_channels(audio, target_channels)
 
-        # Extract the directory of the input file
+    # ------------------------------------------------------------------ #
+    # 3. Optionally save to disk (only possible if we know the origin)
+    # ------------------------------------------------------------------ #
+    if save:
+        if file_path is None:
+            raise ValueError(
+                "save=True was requested but no `file_path` supplied. "
+                "Either provide the path of the original file or set save=False."
+            )
+
         input_dir = os.path.dirname(file_path)
-
-        # Define a subdirectory names "format-standardized"
         output_dir = os.path.join(input_dir, "format-standardized")
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)  # Create the directory if it doesn't exist
+        os.makedirs(output_dir, exist_ok=True)
 
-        # Create the output file path
-        output_name = (
-            os.path.splitext(os.path.basename(file_path))[0] + "_format_standardized"
-        )
-        output_path = os.path.join(output_dir, f"{output_name}.wav")
+        base = os.path.splitext(os.path.basename(file_path))[0]
+        output_path = os.path.join(output_dir, f"{base}_format_standardized.wav")
         print(f"Converted file will be saved at: {output_path}")
-
-        # Export the audio in WAV format
         audio.export(output_path, format="wav")
         print(f"Audio file successfully saved as: {output_path}")
 
-    except Exception as e:
-        print(f"Conversion failed: {e}")
+    # ------------------------------------------------------------------ #
+    # 4. Return the processed AudioSegment so the pipeline can continue
+    # ------------------------------------------------------------------ #
+    return audio
