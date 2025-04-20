@@ -35,4 +35,4 @@ def segment_audio(audio_path, min_silence_len=1000, silence_thresh=-40, skip_ini
 
 # Example usage
 audio_path = r"C:\Users\nadee\Downloads\Download (audio-extractor.net).mp3"
-segment_audio(audio_path, min_silence_len=500, silence_thresh=-40, skip_initial=80000) 
+segment_audio(audio_path, min_silence_len=500, silence_thresh=-40, skip_initial=80000) # we can change the initial time to skip or the silence amount
