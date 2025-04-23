@@ -28,23 +28,23 @@ def process_all_audios(input_dir: str, save_steps: bool, save_chunks: bool):
 
         print(f"\nProcessing file: {filename}")
 
-        # # Step 1: Format Standardization
-        # audio = format_standardization.process_audio(
-        #     file_path=file_path, save=save_steps
+        # Step 1: Format Standardization
+        audio = format_standardization.process_audio(
+            file_path=file_path, save=save_steps
+        )
+
+        # # Step 2: Silence Removal
+        # audio = silence_detection.process_audio(file_path=file_path, save=save_steps)
+
+        # # Step 3: Volume Normalization
+        # audio = normalization.process_audio(
+        #     audio=audio, file_path=file_path, save=save_steps
         # )
 
-        # Step 2: Silence Removal
-        audio = silence_detection.process_audio(file_path=file_path, save=save_steps)
-
-        # Step 3: Volume Normalization
-        audio = normalization.process_audio(
-            audio=audio, file_path=file_path, save=save_steps
-        )
-
-        # Step 4: Clarity Enhancement
-        audio = clarity_enhancement.process_audio(
-            audio=audio, file_path=file_path, save=save_steps
-        )
+        # # Step 4: Clarity Enhancement
+        # audio = clarity_enhancement.process_audio(
+        #     audio=audio, file_path=file_path, save=save_steps
+        # )
 
         # Save the processed audio
         output_dir = os.path.join(input_dir, "processed")
