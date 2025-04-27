@@ -12,24 +12,24 @@ from df.enhance import enhance, init_df
 DF_MODEL, DF_STATE, _ = init_df()
 
 
-def high_pass_filter(audio: AudioSegment, cutoff: float = 80.0) -> AudioSegment:
+def high_pass_filter(audio: AudioSegment, cutoff: float = 50.0) -> AudioSegment:
     """
     Applies a high-pass filter to remove low-frequency noise (rumble).
 
     Args:
         audio (AudioSegment): The input audio segment.
-        cutoff (float): Cutoff frequency in Hz. Defaults to 80 Hz.
+        cutoff (float): Cutoff frequency in Hz. Defaults to 50 Hz.
 
     Returns:
         AudioSegment: Filtered audio segment.
     """
     samples = np.array(audio.get_array_of_samples())
-    sos = signal.butter(10, cutoff, "hp", fs=audio.frame_rate, output="sos")
+    sos = signal.butter(6, cutoff, "hp", fs=audio.frame_rate, output="sos")
     filtered = signal.sosfilt(sos, samples).astype(np.int16)
     return audio._spawn(filtered.tobytes())
 
 
-def neural_noise_reduction(audio: AudioSegment) -> AudioSegment:
+def neural_noise_reduction(audio: AudioSegment, atten_lim=12) -> AudioSegment:
     """
     Performs noise reduction using DeepFilterNet neural network.
 
@@ -39,12 +39,11 @@ def neural_noise_reduction(audio: AudioSegment) -> AudioSegment:
     Returns:
         AudioSegment: Noise-reduced audio.
     """
-    samples = np.array(audio.get_array_of_samples()).astype(np.float32) / 32768.0
-    samples_tensor = torch.from_numpy(samples).unsqueeze(0)
-    enhanced_tensor = enhance(DF_MODEL, DF_STATE, samples_tensor)
-    enhanced_samples = enhanced_tensor.squeeze(0).numpy() * 32768.0
-    enhanced_samples = enhanced_samples.clip(-32768, 32767).astype(np.int16)
-    return audio._spawn(enhanced_samples.tobytes())
+    samp = np.array(audio.get_array_of_samples()).astype(np.float32) / 32768.0
+    tensor = torch.from_numpy(samp).unsqueeze(0)
+    out = enhance(DF_MODEL, DF_STATE, tensor, atten_lim_db=atten_lim)
+    out = (out.squeeze(0).numpy() * 32768).clip(-32768, 32767).astype(np.int16)
+    return audio._spawn(out.tobytes())
 
 
 def apply_equalization(audio: AudioSegment) -> AudioSegment:
@@ -57,8 +56,8 @@ def apply_equalization(audio: AudioSegment) -> AudioSegment:
     Returns:
         AudioSegment: Equalized audio.
     """
-    audio = effects.low_pass_filter(audio, 5000)  # Reduce harshness above 5 kHz
-    audio = effects.high_pass_filter(audio, 2000)  # Remove muddiness below 2 kHz
+    audio = effects.low_pass_filter(audio, 8000)  # Reduce harshness above 5 kHz
+    audio = effects.high_pass_filter(audio, 70)  # Remove muddiness below 2 kHz
     audio += 3  # Slight overall presence boost
     return audio
 

@@ -49,19 +49,18 @@ brew install ffmpeg
 
 ### Run the pipeline
 ```bash
-python audio_processing.py <path-to-directory> [--save_steps] [--save_chunks]
+python audio_processing.py <path-to-directory> [--save_steps]
 ```
 
 ### Example
 ```bash
-python audio_processing.py ./samples --save_steps --save_chunks
+python audio_processing.py ./samples --save_steps
 ```
 
 This will:
 1. Find all audio files in `./samples`
 2. Standardize format, remove silence, normalize, and enhance clarity
 3. Save intermediate files if `--save_steps` is specified
-4. Segment the final output into chunks if `--save_chunks` is specified
 
 ### Output Structure
 ```
@@ -71,7 +70,7 @@ samples/
 ├── silence-removed/
 ├── normalized/
 ├── clarity-enhanced/
-segmented/
+├── segmented/
 ```
 
 ## ✨ Modules Overview
@@ -99,7 +98,6 @@ segmented/
 | Flag          | Purpose                          | Recommended |
 |---------------|-----------------------------------|-------------|
 | `--save_steps`| For debugging and inspection      | ✅           |
-| `--save_chunks`| For inference or batching speech | ✅           |
 
 ---
 
